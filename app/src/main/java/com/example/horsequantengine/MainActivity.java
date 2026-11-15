@@ -233,7 +233,8 @@ public class MainActivity extends AppCompatActivity {
             pB = Math.min(88.0, Math.max(5.0, pB));
 
             r.probA = pA; r.probB = pB; r.edgeA = pA - impliedM; r.edgeB = pB - impliedM;
-            if (r.edgeA > 5.0 && !r.hasFitnessPenalty) validCore.add(r);
+            if (r.edgeA >= 32.0 && !r.hasFitnessPenalty && !r.hasWeightPenalty) validCore.add(r);
+
             else subThreshold.add(r);
         }
 
