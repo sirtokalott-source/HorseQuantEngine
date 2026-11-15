@@ -112,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
         appendLog((isManual ? "Manual" : "07:30 Auto") + " Live API Scan connecting to The Racing API...");
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                String jsonResp = callRacingApi("https://theracingapi.com");
+                String jsonResp = callRacingApi("https://api.theracingapi.com/v1/racecards/summaries");
                 List<RunnerCandidate> parsed = parseRacecardsJson(jsonResp);
                 runOnUiThread(() -> {
                     dailySlate.clear();
