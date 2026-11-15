@@ -204,7 +204,6 @@ public class MainActivity extends AppCompatActivity {
         return list;
     }
 
-    }
         private void runMarketEvaluation() {
         float cW1 = prefs.getFloat("champW1", 0.40f), cW2 = prefs.getFloat("champW2", 0.25f);
         float cW3 = prefs.getFloat("champW3", 0.20f), cW4 = prefs.getFloat("champW4", 0.15f);
