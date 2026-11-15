@@ -358,7 +358,6 @@ public class MainActivity extends AppCompatActivity {
             containerCorePicks.addView(tv);
         }
     }
-
     private void showSevenDayResultsDialog() {
         String history = prefs.getString("sevenDayHistory",
                 "14/11/2026: Florida Dreams (1st @ 7/4F, +2.00 pts) | Zurich (7th @ 8/1, -1.00 pt)\n" +
