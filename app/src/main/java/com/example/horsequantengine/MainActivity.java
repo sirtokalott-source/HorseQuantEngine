@@ -151,7 +151,7 @@ public class MainActivity extends AppCompatActivity {
         return sb.toString();
     }
 
-    private List<RunnerCandidate> parseRacecardsJson(String rawJson) throws Exception {
+        private List<RunnerCandidate> parseRacecardsJson(String rawJson) throws Exception {
         List<RunnerCandidate> list = new ArrayList<>();
         JSONObject root = new JSONObject(rawJson);
         JSONArray racecards = root.optJSONArray("racecards");
@@ -159,10 +159,14 @@ public class MainActivity extends AppCompatActivity {
 
         for (int i = 0; i < racecards.length(); i++) {
             JSONObject race = racecards.getJSONObject(i);
+            String region = race.optString("region", "");
+            if (!"GB".equalsIgnoreCase(region) && !"IRE".equalsIgnoreCase(region)) continue;
+
             String course = race.optString("course", "UK Track");
             String offTime = race.optString("off_time", "14:00");
             String raceId = race.optString("race_id", course + "_" + offTime);
             String going = race.optString("going", "Good");
+            String raceClass = race.optString("race_class", "");
             JSONArray runners = race.optJSONArray("runners");
             if (runners == null) continue;
 
@@ -173,21 +177,24 @@ public class MainActivity extends AppCompatActivity {
                 String horse = run.optString("horse", "Unknown");
                 String form = run.optString("form", "-");
                 int daysOff = run.optInt("days_since_last_run", 30);
-                String wgt = run.optString("lbs", "154") + "lb";
-                int rpr = run.optInt("rpr", 100);
-                int ts = run.optInt("ts", 95);
-                double odds = run.optDouble("odds_decimal", 4.0);
-                if (odds <= 1.05) odds = 4.0;
+                int lbs = run.optInt("lbs", 154);
+                String wgt = lbs + "lb";
+                int rpr = run.optInt("rpr", 110);
+                int ts = run.optInt("ts", 100);
+                String headgear = run.optString("headgear", "");
+                double odds = run.optDouble("odds_decimal", 4.50);
+                if (odds <= 1.05) odds = 4.50;
 
-                boolean r1 = run.optInt("trainer_distance_miles", 90) > 175;
-                boolean r2 = form.contains("1") || run.optBoolean("course_winner", false);
+                String recent3 = form.length() > 3 ? form.substring(form.length() - 3) : form;
+                boolean r1 = run.optInt("trainer_distance_miles", 90) > 175 || "IRE".equalsIgnoreCase(region);
+                boolean r2 = form.contains("1") && recent3.contains("1");
                 boolean r3 = going.toLowerCase().contains("good") || going.toLowerCase().contains("soft");
-                boolean r4 = rpr >= 115 || ts >= 105;
+                boolean r4 = raceClass.contains("1") || raceClass.contains("2") || raceClass.contains("3") || recent3.endsWith("1");
 
-                boolean fitPen = daysOff > 120 && rpr < 145;
-                boolean wgtPen = form.endsWith("1") && run.optInt("lbs", 150) >= 164;
-                boolean pace = "L".equalsIgnoreCase(run.optString("run_style", ""));
-                boolean syn = run.optDouble("trainer_jockey_sr", 0.0) >= 18.0;
+                boolean fitPen = daysOff > 120;
+                boolean wgtPen = lbs >= 166 || headgear.contains("b") || headgear.contains("p");
+                boolean pace = recent3.startsWith("1") || recent3.startsWith("2");
+                boolean syn = !run.optString("jockey", "").isEmpty() && recent3.contains("1");
 
                 list.add(new RunnerCandidate(raceId, offTime + " " + course, horse, odds,
                         form, daysOff, wgt, rpr, ts, r1, r2, r3, r4,
@@ -195,6 +202,8 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return list;
+    }
+
     }
         private void runMarketEvaluation() {
         float cW1 = prefs.getFloat("champW1", 0.40f), cW2 = prefs.getFloat("champW2", 0.25f);
