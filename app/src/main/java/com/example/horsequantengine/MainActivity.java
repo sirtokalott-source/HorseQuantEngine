@@ -136,6 +136,8 @@ public class MainActivity extends AppCompatActivity {
         String auth = API_USER + ":" + API_PASS;
         String encodedAuth = Base64.encodeToString(auth.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
         conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
+        conn.setRequestProperty("Accept", "application/json");
+
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
 
