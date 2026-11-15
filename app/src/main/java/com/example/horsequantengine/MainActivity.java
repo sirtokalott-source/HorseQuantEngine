@@ -112,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
         appendLog((isManual ? "Manual" : "07:30 Auto") + " Live API Scan connecting to The Racing API...");
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
-                String jsonResp = callRacingApi("https://api.theracingapi.com/v1/racecards/summaries");
+                String jsonResp = callRacingApi("https://api.theracingapi.com/v1/racecards/free");
                 List<RunnerCandidate> parsed = parseRacecardsJson(jsonResp);
                 runOnUiThread(() -> {
                     dailySlate.clear();
@@ -137,6 +137,8 @@ public class MainActivity extends AppCompatActivity {
         String encodedAuth = Base64.encodeToString(auth.getBytes(StandardCharsets.UTF_8), Base64.NO_WRAP);
         conn.setRequestProperty("Authorization", "Basic " + encodedAuth);
         conn.setRequestProperty("Accept", "application/json");
+        conn.setRequestProperty("User-Agent", "HorseQuantEngine/2.1");
+
 
         conn.setConnectTimeout(15000);
         conn.setReadTimeout(15000);
