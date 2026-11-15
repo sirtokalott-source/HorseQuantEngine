@@ -192,6 +192,159 @@ public class MainActivity extends AppCompatActivity {
         }
         return list;
     }
+        private void runMarketEvaluation() {
+        float cW1 = prefs.getFloat("champW1", 0.40f), cW2 = prefs.getFloat("champW2", 0.25f);
+        float cW3 = prefs.getFloat("champW3", 0.20f), cW4 = prefs.getFloat("champW4", 0.15f);
+        float bW1 = prefs.getFloat("challW1", 0.40f), bW2 = prefs.getFloat("challW2", 0.25f);
+        float bW3 = prefs.getFloat("challW3", 0.20f), bW4 = prefs.getFloat("challW4", 0.15f);
+
+        List<RunnerCandidate> validCore = new ArrayList<>();
+        List<RunnerCandidate> subThreshold = new ArrayList<>();
+
+        for (RunnerCandidate r : dailySlate) {
+            if (r.voidedByUser) continue;
+            double impliedM = (1.0 / r.decimalOdds) * 100.0;
+            double pA = 12.0 + (r.rank1Travel ? cW1 * 76.0 : 0) + (r.rank2CourseDist ? cW2 * 76.0 : 0)
+                    + (r.rank3GoingStick ? cW3 * 76.0 : 0) + (r.rank4JumpClass ? cW4 * 76.0 : 0);
+            double pB = 12.0 + (r.rank1Travel ? bW1 * 76.0 : 0) + (r.rank2CourseDist ? bW2 * 76.0 : 0)
+                    + (r.rank3GoingStick ? bW3 * 76.0 : 0) + (r.rank4JumpClass ? bW4 * 76.0 : 0);
+
+            if (r.hasFitnessPenalty) pB -= 12.0;
+            if (r.hasWeightPenalty) pB -= 8.0;
+            if (r.hasPaceEdge) pB += 4.0;
+            if (r.hasSteamEdge) pB += 4.0;
+            if (r.hasSynergyEdge) pB += 3.0;
+            if (r.hasDrawEdge) pB += 3.0;
+
+            pA = Math.min(88.0, Math.max(5.0, pA));
+            pB = Math.min(88.0, Math.max(5.0, pB));
+
+            r.probA = pA; r.probB = pB; r.edgeA = pA - impliedM; r.edgeB = pB - impliedM;
+            if (r.edgeA > 5.0 && !r.hasFitnessPenalty) validCore.add(r);
+            else subThreshold.add(r);
+        }
+
+        Collections.sort(validCore, (a, b) -> Double.compare(b.edgeA, a.edgeA));
+        Collections.sort(subThreshold, (a, b) -> Double.compare(b.edgeA, a.edgeA));
+
+        List<RunnerCandidate> finalCoreZeroOverlap = new ArrayList<>();
+        List<String> usedRaces = new ArrayList<>();
+        for (RunnerCandidate r : validCore) {
+            if (!usedRaces.contains(r.raceId)) {
+                finalCoreZeroOverlap.add(r);
+                usedRaces.add(r.raceId);
+            }
+        }
+        persistActiveSlate(finalCoreZeroOverlap);
+        renderPicksUI(finalCoreZeroOverlap, subThreshold);
+    }
+
+    private void renderPicksUI(List<RunnerCandidate> corePicks, List<RunnerCandidate> subPicks) {
+        containerCorePicks.removeAllViews();
+        containerSubPicks.removeAllViews();
+        boolean audited = prefs.getBoolean("auditCompletedToday", false);
+        txtCoreHeader.setText(audited ? "TODAY'S FINAL AUDIT RESULTS (CLEARS AT 07:30):" : "TODAY'S ACTIVE SLATE (RANKED #1 BEST FIRST):");
+
+        if (corePicks.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText("Tap 'SCAN LIVE MARKETS NOW' or wait for 07:30 AM Auto-Scan.");
+            empty.setTextColor(Color.LTGRAY);
+            containerCorePicks.addView(empty);
+        } else {
+            for (int i = 0; i < corePicks.size(); i++) {
+                containerCorePicks.addView(buildRunnerCard(corePicks.get(i), i + 1, true, audited));
+            }
+        }
+
+        int extraRequested = 0;
+        try { extraRequested = Integer.parseInt(inputExtraSubPicks.getText().toString().trim()); } catch (Exception ignored) {}
+
+        if (extraRequested > 0 && !subPicks.isEmpty()) {
+            txtSubThresholdHeader.setVisibility(View.VISIBLE);
+            containerSubPicks.setVisibility(View.VISIBLE);
+            for (int i = 0; i < Math.min(extraRequested, subPicks.size()); i++) {
+                containerSubPicks.addView(buildRunnerCard(subPicks.get(i), i + 1, false, audited));
+            }
+        } else {
+            txtSubThresholdHeader.setVisibility(View.GONE);
+            containerSubPicks.setVisibility(View.GONE);
+        }
+    }
+    private View buildRunnerCard(RunnerCandidate r, int rankOrder, boolean isCore, boolean audited) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setBackgroundColor(isCore ? Color.parseColor("#1E1E1E") : Color.parseColor("#2A1616"));
+        card.setPadding(24, 20, 24, 20);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, 0, 0, 16);
+        card.setLayoutParams(params);
+
+        String betAction = !isCore ? "SUB-THRESHOLD: EXCLUDED FROM TRAINING DATA"
+                : (audited ? "FINAL RESULT: " + r.resultStatus
+                : (r.decimalOdds >= 7.0 ? "£1.00 EACH-WAY (£2.00 TOTAL) — PROFIT E/W" : "£2.00 STRAIGHT WIN (BOG ACTIVE)"));
+
+        TextView title = new TextView(this);
+        title.setText("#" + rankOrder + " | " + r.raceTimeTrack + " — " + r.horseName.toUpperCase() + " (@ " + String.format(Locale.UK, "%.2f", r.decimalOdds) + ")");
+        title.setTextColor(isCore ? Color.parseColor("#FF9800") : Color.parseColor("#FF5252"));
+        title.setTextSize(15f);
+        card.addView(title);
+
+        TextView formLine = new TextView(this);
+        formLine.setText("FORM: " + r.formString + " (" + r.daysOff + "d off) | WGT: " + r.weightInfo + " | RPR " + r.rpr + " / TS " + r.ts);
+        formLine.setTextColor(Color.parseColor("#81D4FA"));
+        formLine.setTextSize(12f);
+        card.addView(formLine);
+
+        TextView metrics = new TextView(this);
+        metrics.setText(String.format(Locale.UK, "Engine A: %.1f%% (Edge %+.1f%%) | Engine B: %.1f%% (Edge %+.1f%%)\nSTATUS: %s",
+                r.probA, r.edgeA, r.probB, r.edgeB, betAction));
+        metrics.setTextColor(Color.WHITE);
+        metrics.setTextSize(13f);
+        card.addView(metrics);
+
+        if (isCore && !audited) {
+            Button btnProblem = new Button(this);
+            btnProblem.setText("PROBLEM / RECHECK THIS RACE");
+            btnProblem.setBackgroundColor(Color.parseColor("#D32F2F"));
+            btnProblem.setTextColor(Color.WHITE);
+            btnProblem.setTextSize(11f);
+            btnProblem.setOnClickListener(v -> {
+                r.voidedByUser = true;
+                appendLog("VOIDED: " + r.horseName + " flagged. Re-evaluating " + r.raceTimeTrack + "...");
+                runMarketEvaluation();
+            });
+            card.addView(btnProblem);
+        }
+        return card;
+    }
+
+    private void persistActiveSlate(List<RunnerCandidate> picks) {
+        StringBuilder sb = new StringBuilder();
+        for (RunnerCandidate r : picks) {
+            sb.append(r.raceTimeTrack).append(" — ").append(r.horseName)
+              .append(" (@ ").append(String.format(Locale.UK, "%.2f", r.decimalOdds))
+              .append(") | ").append(r.resultStatus).append("\n");
+        }
+        prefs.edit().putString("savedTodaySummary", sb.toString()).apply();
+    }
+
+    private void restorePersistedSlate() {
+        String savedDate = prefs.getString("activeSlateDate", "");
+        if (!getTodayDateStr().equals(savedDate)) {
+            containerCorePicks.removeAllViews();
+            return;
+        }
+        String summary = prefs.getString("savedTodaySummary", "");
+        if (!summary.isEmpty()) {
+            TextView tv = new TextView(this);
+            tv.setText(summary.trim());
+            tv.setTextColor(Color.WHITE);
+            tv.setPadding(16, 16, 16, 16);
+            tv.setBackgroundColor(Color.parseColor("#1E1E1E"));
+            containerCorePicks.addView(tv);
+        }
+    }
+
     private void showSevenDayResultsDialog() {
         String history = prefs.getString("sevenDayHistory",
                 "14/11/2026: Florida Dreams (1st @ 7/4F, +2.00 pts) | Zurich (7th @ 8/1, -1.00 pt)\n" +
